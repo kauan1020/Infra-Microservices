@@ -1,0 +1,195 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sonarqube
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sonar-postgres-secret
+  namespace: sonarqube
+type: Opaque
+data:
+  username: c29uYXI=
+  password: c29uYXI=
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonar-postgres
+  namespace: sonarqube
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sonar-postgres
+  template:
+    metadata:
+      labels:
+        app: sonar-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: sonar-postgres-secret
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sonar-postgres-secret
+              key: password
+        - name: POSTGRES_DB
+          value: sonar
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - sonar
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - sonar
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: sonar-postgres-data
+          mountPath: /var/lib/postgresql/data
+          subPath: pgdata
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: sonar-postgres-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonar-postgres
+  namespace: sonarqube
+spec:
+  selector:
+    app: sonar-postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarqube
+  namespace: sonarqube
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sonarqube
+  template:
+    metadata:
+      labels:
+        app: sonarqube
+    spec:
+      initContainers:
+      - name: wait-for-db
+        image: postgres:13
+        command: ['sh', '-c',
+          'until pg_isready -h sonar-postgres -p 5432 -U sonar; do echo waiting for database; sleep 2; done;']
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sonar-postgres-secret
+              key: password
+      containers:
+      - name: sonarqube
+        image: sonarqube:9.9-community
+        ports:
+        - containerPort: 9000
+        env:
+        - name: SONAR_JDBC_URL
+          value: "jdbc:postgresql://sonar-postgres:5432/sonar"
+        - name: SONAR_JDBC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: sonar-postgres-secret
+              key: username
+        - name: SONAR_JDBC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sonar-postgres-secret
+              key: password
+        - name: SONAR_ES_BOOTSTRAP_CHECKS_DISABLE
+          value: "true"
+        - name: SONAR_CE_JAVAOPTS
+          value: "-Xmx512m -Xms256m -XX:+HeapDumpOnOutOfMemoryError"
+        - name: SONAR_WEB_JAVAOPTS
+          value: "-Xmx256m -Xms128m -XX:+HeapDumpOnOutOfMemoryError"
+        - name: SONAR_SEARCH_JAVAOPTS
+          value: "-Xmx512m -Xms512m -XX:+HeapDumpOnOutOfMemoryError"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: sonarqube-data
+          mountPath: /opt/sonarqube/data
+        - name: sonarqube-logs
+          mountPath: /opt/sonarqube/logs
+        - name: sonarqube-temp
+          mountPath: /opt/sonarqube/temp
+        startupProbe:
+          httpGet:
+            path: /api/system/status
+            port: 9000
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          failureThreshold: 20
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /api/system/status
+            port: 9000
+          initialDelaySeconds: 180
+          periodSeconds: 30
+          failureThreshold: 6
+      volumes:
+      - name: sonarqube-data
+        emptyDir: {}
+      - name: sonarqube-logs
+        emptyDir: {}
+      - name: sonarqube-temp
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarqube
+  namespace: sonarqube
+spec:
+  selector:
+    app: sonarqube
+  ports:
+  - port: 9000
+    targetPort: 9000
+  type: ClusterIP

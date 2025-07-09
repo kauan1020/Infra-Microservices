@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: auth-db-migration
+  namespace: fiap-x-dev
+spec:
+  template:
+    spec:
+      serviceAccountName: auth-service-sa
+      restartPolicy: Never
+      containers:
+      - name: migration
+        image: 720049726178.dkr.ecr.us-east-1.amazonaws.com/fiap-x-dev-auth-service:latest
+        command: ["alembic", "upgrade", "head"]
+        env:
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: DB_SECRET_ARN
+          value: "${AUTH_DB_SECRET_ARN}"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+  backoffLimit: 3
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: video-db-migration
+  namespace: fiap-x-dev
+spec:
+  template:
+    spec:
+      serviceAccountName: video-service-sa
+      restartPolicy: Never
+      containers:
+      - name: migration
+        image: 720049726178.dkr.ecr.us-east-1.amazonaws.com/fiap-x-dev-video-service:latest
+        command: ["alembic", "upgrade", "head"]
+        env:
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: DB_SECRET_ARN
+          value: "${VIDEO_DB_SECRET_ARN}"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+  backoffLimit: 3
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cleanup-temp-files
+  namespace: fiap-x-dev
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: cleanup
+            image: busybox
+            command:
+            - /bin/sh
+            - -c
+            - |
+              find /app/storage/temp -type f -mtime +1 -delete
+              find /app/storage/temp -type d -empty -delete
+            volumeMounts:
+            - name: video-storage
+              mountPath: /app/storage
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"
+              limits:
+                memory: "128Mi"
+                cpu: "100m"
+          volumes:
+          - name: video-storage
+            persistentVolumeClaim:
+              claimName: video-storage-pvc

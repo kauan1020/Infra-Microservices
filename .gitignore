@@ -1,0 +1,152 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfvars
+*.tfplan
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Terraform Cloud
+.terraform.d/
+
+# Ansible
+*.retry
+.vault_pass.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# AWS
+.aws/
+aws-exports.js
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+.kube/
+
+# Helm
+*.tgz
+charts/*/charts
+charts/*/requirements.lock
+
+# Secrets
+secrets.yaml
+secrets.yml
+secret.yaml
+secret.yml
+credentials.json
+*.pem
+*.key
+*.crt
+*.csr
+
+# Backup files
+*.backup
+*.bak
+*.tmp
+
+# Scripts output
+scripts/output/
+scripts/logs/
+
+# Monitoring
+prometheus_data/
+grafana_data/
+
+# Local development
+local/
+dev/
+sandbox/
+
+# Documentation build
+docs/_build/
+site/
+
+# Cache
+.cache/
+cache/
+
+# Node.js (if using any JS tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python (if using any Python tools)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Archives
+*.tar
+*.tar.gz
+*.zip
+*.rar
+
+# Generated files
+generated/
+auto-generated/
+
+# Certificates
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+
+# Local overrides
+local.tf
+local.tfvars
+dev.tfvars
+*.local.tf
+
+# Terraform files
+terraform/*.tfvars
+terraform/*.tfvars.json
+terraform/terraform.tfstate
+terraform/terraform.tfstate.*
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/*.tfplan
+terraform/*.tfplan.*
+
+# OS files
+.DS_Store
+Thumbs.db
