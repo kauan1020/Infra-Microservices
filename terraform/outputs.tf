@@ -1,3 +1,4 @@
+
 output "cluster_endpoint" {
   description = "EKS cluster endpoint"
   value       = module.eks.cluster_endpoint
@@ -51,6 +52,27 @@ output "notification_secret_arn" {
 output "auth_secret_arn" {
   description = "Auth secret ARN"
   value       = module.secrets.auth_secret_arn
+}
+
+# Adicione os outputs de name que estão faltando
+output "jwt_secret_name" {
+  description = "JWT secret name"
+  value       = module.secrets.jwt_secret_name
+}
+
+output "redis_secret_name" {
+  description = "Redis secret name"
+  value       = module.secrets.redis_secret_name
+}
+
+output "notification_secret_name" {
+  description = "Notification secret name"
+  value       = module.secrets.notification_secret_name
+}
+
+output "auth_secret_name" {
+  description = "Auth secret name"
+  value       = module.secrets.auth_secret_name
 }
 
 output "ecr_repositories" {

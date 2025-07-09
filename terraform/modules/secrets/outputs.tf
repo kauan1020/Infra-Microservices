@@ -1,3 +1,5 @@
+# terraform/modules/secrets/outputs.tf
+
 output "jwt_secret_arn" {
   description = "JWT secret ARN"
   value       = aws_secretsmanager_secret.jwt_secret.arn
