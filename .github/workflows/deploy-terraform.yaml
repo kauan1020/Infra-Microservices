@@ -3,7 +3,7 @@ name: Infrastructure CI/CD
 on:
   push:
     branches: [ main ]
-    paths: [ 'terraform/**', 'k8s/**', 'scripts/**' ]
+    paths: [ 'terraform/**', 'k8s/**', 'scripts/**', '.github/**' ]
   pull_request:
     branches: [ main ]
     paths: [ 'terraform/**', 'k8s/**', 'scripts/**' ]
