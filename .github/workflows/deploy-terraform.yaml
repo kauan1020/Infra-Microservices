@@ -3,9 +3,11 @@ name: Infrastructure CI/CD
 on:
   push:
     branches: [ main ]
+    paths: [ 'terraform/**', 'k8s/**', 'scripts/**' ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
+    paths: [ 'terraform/**', 'k8s/**', 'scripts/**' ]
+  workflow_dispatch:  # Permite execução manual
 
 env:
   AWS_REGION: us-east-1
@@ -39,19 +41,6 @@ jobs:
       run: |
         cd terraform
         terraform init
-
-    - name: Import existing resources (if needed)
-      env:
-        TF_VAR_gmail_email: ${{ secrets.GMAIL_EMAIL }}
-        TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
-        TF_VAR_admin_emails: ${{ secrets.ADMIN_EMAILS }}
-      run: |
-        cd terraform
-        # Tentativa de importar recursos existentes - falha silenciosa se não existirem
-        terraform import -input=false module.secrets.aws_secretsmanager_secret.jwt_secret fiap-x-dev-jwt-secret || true
-        terraform import -input=false module.secrets.aws_secretsmanager_secret.redis_secret fiap-x-dev-redis-secret || true
-        terraform import -input=false module.secrets.aws_secretsmanager_secret.auth_secret fiap-x-dev-auth-secret || true
-        terraform import -input=false module.secrets.aws_secretsmanager_secret.notification_secret fiap-x-dev-notification-secret || true
 
     - name: Terraform Validate
       env:
@@ -133,12 +122,27 @@ jobs:
         kubectl apply -f k8s/rbac/service-accounts.yaml || true
         kubectl apply -f k8s/configmaps/app-config.yaml || true
         
-        # Criar secrets do Terraform nos K8s
+        # Verificar se os outputs existem antes de usá-los
         cd terraform
-        JWT_SECRET_NAME=$(terraform output -raw jwt_secret_name)
-        REDIS_SECRET_NAME=$(terraform output -raw redis_secret_name)
-        AUTH_SECRET_NAME=$(terraform output -raw auth_secret_name)
-        NOTIFICATION_SECRET_NAME=$(terraform output -raw notification_secret_name)
+        if terraform output jwt_secret_name >/dev/null 2>&1; then
+          JWT_SECRET_NAME=$(terraform output -raw jwt_secret_name)
+          echo "JWT_SECRET_NAME=$JWT_SECRET_NAME" >> $GITHUB_ENV
+        fi
+        
+        if terraform output redis_secret_name >/dev/null 2>&1; then
+          REDIS_SECRET_NAME=$(terraform output -raw redis_secret_name)
+          echo "REDIS_SECRET_NAME=$REDIS_SECRET_NAME" >> $GITHUB_ENV
+        fi
+        
+        if terraform output auth_secret_name >/dev/null 2>&1; then
+          AUTH_SECRET_NAME=$(terraform output -raw auth_secret_name)
+          echo "AUTH_SECRET_NAME=$AUTH_SECRET_NAME" >> $GITHUB_ENV
+        fi
+        
+        if terraform output notification_secret_name >/dev/null 2>&1; then
+          NOTIFICATION_SECRET_NAME=$(terraform output -raw notification_secret_name)
+          echo "NOTIFICATION_SECRET_NAME=$NOTIFICATION_SECRET_NAME" >> $GITHUB_ENV
+        fi
         
         # Aplicar secrets se existirem
         if [ -f "../k8s/secrets/secrets.yaml" ]; then
@@ -173,9 +177,19 @@ jobs:
       run: |
         cd terraform
         terraform init
-        echo "EFS_FILE_SYSTEM_ID=$(terraform output -raw efs_file_system_id)" >> $GITHUB_ENV
-        echo "RDS_AUTH_ENDPOINT=$(terraform output -raw rds_auth_endpoint)" >> $GITHUB_ENV
-        echo "RDS_VIDEO_ENDPOINT=$(terraform output -raw rds_video_endpoint)" >> $GITHUB_ENV
+        
+        # Verificar se os outputs existem antes de usá-los
+        if terraform output efs_file_system_id >/dev/null 2>&1; then
+          echo "EFS_FILE_SYSTEM_ID=$(terraform output -raw efs_file_system_id)" >> $GITHUB_ENV
+        fi
+        
+        if terraform output rds_auth_endpoint >/dev/null 2>&1; then
+          echo "RDS_AUTH_ENDPOINT=$(terraform output -raw rds_auth_endpoint)" >> $GITHUB_ENV
+        fi
+        
+        if terraform output rds_video_endpoint >/dev/null 2>&1; then
+          echo "RDS_VIDEO_ENDPOINT=$(terraform output -raw rds_video_endpoint)" >> $GITHUB_ENV
+        fi
 
     - name: Deploy EFS Storage Class
       run: |
