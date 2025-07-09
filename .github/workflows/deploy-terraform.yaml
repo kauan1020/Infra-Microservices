@@ -5,7 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Permite execução manual
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
@@ -32,11 +32,19 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
 
     - name: Terraform Init
+      env:
+        TF_VAR_gmail_email: ${{ secrets.GMAIL_EMAIL }}
+        TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
+        TF_VAR_admin_emails: ${{ secrets.ADMIN_EMAILS }}
       run: |
         cd terraform
         terraform init
 
     - name: Import existing resources (if needed)
+      env:
+        TF_VAR_gmail_email: ${{ secrets.GMAIL_EMAIL }}
+        TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
+        TF_VAR_admin_emails: ${{ secrets.ADMIN_EMAILS }}
       run: |
         cd terraform
         # Tentativa de importar recursos existentes - falha silenciosa se não existirem
@@ -46,6 +54,10 @@ jobs:
         terraform import -input=false module.secrets.aws_secretsmanager_secret.notification_secret fiap-x-dev-notification-secret || true
 
     - name: Terraform Validate
+      env:
+        TF_VAR_gmail_email: ${{ secrets.GMAIL_EMAIL }}
+        TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
+        TF_VAR_admin_emails: ${{ secrets.ADMIN_EMAILS }}
       run: |
         cd terraform
         terraform validate
@@ -93,6 +105,10 @@ jobs:
         path: terraform/
 
     - name: Terraform Init
+      env:
+        TF_VAR_gmail_email: ${{ secrets.GMAIL_EMAIL }}
+        TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
+        TF_VAR_admin_emails: ${{ secrets.ADMIN_EMAILS }}
       run: |
         cd terraform
         terraform init
