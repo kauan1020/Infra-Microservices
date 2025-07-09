@@ -64,8 +64,7 @@ spec:
           periodSeconds: 5
       volumes:
       - name: redis-data
-        persistentVolumeClaim:
-          claimName: redis-pvc
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -79,15 +78,3 @@ spec:
   - port: 6379
     targetPort: 6379
   type: ClusterIP
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: redis-pvc
-  namespace: fiap-x-dev
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi
