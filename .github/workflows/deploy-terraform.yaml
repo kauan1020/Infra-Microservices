@@ -3,11 +3,9 @@ name: Infrastructure CI/CD
 on:
   push:
     branches: [ main ]
-    paths: [ 'terraform/**', 'k8s/**', 'scripts/**', '.github/**' ]
   pull_request:
     branches: [ main ]
-    paths: [ 'terraform/**', 'k8s/**', 'scripts/**' ]
-  workflow_dispatch:
+  workflow_dispatch:  # Permite execução manual
 
 env:
   AWS_REGION: us-east-1
@@ -53,6 +51,10 @@ jobs:
         terraform validate
 
     - name: Terraform Plan
+      env:
+        TF_VAR_gmail_email: ${{ secrets.GMAIL_EMAIL }}
+        TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
+        TF_VAR_admin_emails: ${{ secrets.ADMIN_EMAILS }}
       run: |
         cd terraform
         terraform plan -out=tfplan
@@ -96,6 +98,10 @@ jobs:
         terraform init
 
     - name: Terraform Apply
+      env:
+        TF_VAR_gmail_email: ${{ secrets.GMAIL_EMAIL }}
+        TF_VAR_gmail_app_password: ${{ secrets.GMAIL_APP_PASSWORD }}
+        TF_VAR_admin_emails: ${{ secrets.ADMIN_EMAILS }}
       run: |
         cd terraform
         terraform apply -auto-approve tfplan
