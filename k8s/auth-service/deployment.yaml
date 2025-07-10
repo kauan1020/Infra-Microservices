@@ -24,20 +24,84 @@ spec:
       serviceAccountName: auth-service-sa
       containers:
       - name: auth-service
-        image: ${IMAGE_URI}
+        image: 720049726178.dkr.ecr.us-east-1.amazonaws.com/fiap-x-dev-auth-service:latest
         ports:
         - containerPort: 8000
         env:
-        - name: APP_NAME
+        - name: APP_APP_NAME
           value: "FIAP X Authentication Service"
-        - name: APP_VERSION
+        - name: APP_APP_VERSION
           value: "1.0.0"
-        - name: APP_ENVIRONMENT
-          value: "production"
+        - name: APP_DEBUG
+          value: "false"
         - name: APP_HOST
           value: "0.0.0.0"
         - name: APP_PORT
           value: "8000"
+        - name: APP_ENVIRONMENT
+          value: "production"
+        - name: APP_LOG_LEVEL
+          value: "INFO"
+        - name: APP_LOG_FORMAT
+          value: "json"
+        - name: APP_WORKERS
+          value: "1"
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: auth-db-secret
+              key: host
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: auth-db-secret
+              key: database
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: auth-db-secret
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: auth-db-secret
+              key: password
+        - name: DB_POOL_SIZE
+          value: "20"
+        - name: DB_MAX_OVERFLOW
+          value: "30"
+        - name: DB_ECHO
+          value: "false"
+        - name: DB_POOL_PRE_PING
+          value: "true"
+        - name: DB_POOL_RECYCLE
+          value: "3600"
+        - name: DB_POOL_TIMEOUT
+          value: "30"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-secret
+              key: password
+        - name: REDIS_DB
+          value: "0"
+        - name: REDIS_MAX_CONNECTIONS
+          value: "50"
+        - name: REDIS_SOCKET_TIMEOUT
+          value: "5"
+        - name: REDIS_SOCKET_CONNECT_TIMEOUT
+          value: "5"
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret
+              key: secret-key
         - name: JWT_ALGORITHM
           value: "HS256"
         - name: JWT_ISSUER
@@ -46,24 +110,28 @@ spec:
           value: "15"
         - name: JWT_REFRESH_TOKEN_EXPIRE_DAYS
           value: "30"
+        - name: JWT_REMEMBER_ME_ACCESS_EXPIRE_MINUTES
+          value: "30"
+        - name: JWT_REMEMBER_ME_REFRESH_EXPIRE_DAYS
+          value: "90"
         - name: SECURITY_BCRYPT_ROUNDS
           value: "12"
+        - name: SECURITY_CHECK_COMPROMISED_PASSWORDS
+          value: "false"
         - name: SECURITY_RATE_LIMIT_REQUESTS
           value: "100"
-        - name: REDIS_HOST
-          value: "redis-service"
-        - name: REDIS_PORT
-          value: "6379"
+        - name: SECURITY_RATE_LIMIT_WINDOW
+          value: "60"
+        - name: SECURITY_CORS_ORIGINS
+          value: '["*"]'
+        - name: SECURITY_CORS_METHODS
+          value: '["GET", "POST", "PUT", "DELETE"]'
+        - name: SECURITY_CORS_HEADERS
+          value: '["*"]'
         - name: AWS_REGION
           value: "us-east-1"
         - name: AWS_DEFAULT_REGION
           value: "us-east-1"
-        - name: DB_SECRET_ARN
-          value: "${AUTH_DB_SECRET_ARN}"
-        - name: JWT_SECRET_ARN
-          value: "${JWT_SECRET_ARN}"
-        - name: REDIS_SECRET_ARN
-          value: "${REDIS_SECRET_ARN}"
         resources:
           requests:
             memory: "256Mi"
@@ -77,12 +145,16 @@ spec:
             port: 8000
           initialDelaySeconds: 60
           periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /health
             port: 8000
           initialDelaySeconds: 10
           periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
 ---
 apiVersion: v1
 kind: Service
@@ -95,4 +167,6 @@ spec:
   ports:
   - port: 8000
     targetPort: 8000
+    protocol: TCP
+    name: http
   type: ClusterIP
