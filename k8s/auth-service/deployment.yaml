@@ -1,9 +1,3 @@
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: auth-service-sa
-  namespace: fiap-x-dev
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,30 +16,14 @@ spec:
         app: auth-service
     spec:
       serviceAccountName: auth-service-sa
-      containers:
-      - name: auth-service
+
+      initContainers:
+      - name: auth-db-migration
         image: 720049726178.dkr.ecr.us-east-1.amazonaws.com/fiap-x-dev-auth-service:latest
-        ports:
-        - containerPort: 8000
+        command: ["alembic", "upgrade", "head"]
         env:
-        - name: APP_APP_NAME
-          value: "FIAP X Authentication Service"
-        - name: APP_APP_VERSION
-          value: "1.0.0"
-        - name: APP_DEBUG
-          value: "false"
-        - name: APP_HOST
-          value: "0.0.0.0"
-        - name: APP_PORT
-          value: "8000"
-        - name: APP_ENVIRONMENT
-          value: "production"
-        - name: APP_LOG_LEVEL
-          value: "INFO"
-        - name: APP_LOG_FORMAT
-          value: "json"
-        - name: APP_WORKERS
-          value: "1"
+        - name: AWS_REGION
+          value: "us-east-1"
         - name: DB_HOST
           valueFrom:
             secretKeyRef:
@@ -68,6 +46,63 @@ spec:
             secretKeyRef:
               name: auth-db-secret
               key: password
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+      containers:
+      - name: auth-service
+        image: 720049726178.dkr.ecr.us-east-1.amazonaws.com/fiap-x-dev-auth-service:latest
+        ports:
+        - containerPort: 8000
+
+        env:
+        - name: APP_APP_NAME
+          value: "FIAP X Authentication Service"
+        - name: APP_APP_VERSION
+          value: "1.0.0"
+        - name: APP_DEBUG
+          value: "false"
+        - name: APP_HOST
+          value: "0.0.0.0"
+        - name: APP_PORT
+          value: "8000"
+        - name: APP_ENVIRONMENT
+          value: "production"
+        - name: APP_LOG_LEVEL
+          value: "INFO"
+        - name: APP_LOG_FORMAT
+          value: "json"
+        - name: APP_WORKERS
+          value: "1"
+
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: auth-db-secret
+              key: host
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: auth-db-secret
+              key: database
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: auth-db-secret
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: auth-db-secret
+              key: password
+
         - name: DB_POOL_SIZE
           value: "20"
         - name: DB_MAX_OVERFLOW
@@ -132,6 +167,7 @@ spec:
           value: "us-east-1"
         - name: AWS_DEFAULT_REGION
           value: "us-east-1"
+
         resources:
           requests:
             memory: "256Mi"
@@ -139,6 +175,7 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
+
         livenessProbe:
           httpGet:
             path: /health
@@ -155,18 +192,3 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 5
           failureThreshold: 3
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: auth-service
-  namespace: fiap-x-dev
-spec:
-  selector:
-    app: auth-service
-  ports:
-  - port: 8000
-    targetPort: 8000
-    protocol: TCP
-    name: http
-  type: ClusterIP

@@ -5,7 +5,7 @@ metadata:
 provisioner: efs.csi.aws.com
 parameters:
   provisioningMode: efs-ap
-  fileSystemId: <EFS_FILE_SYSTEM_ID>
+  fileSystemId: fs-0fa9fbc4343c01886
   directoryPerms: "700"
   gidRangeStart: "1000"
   gidRangeEnd: "2000"
@@ -25,7 +25,7 @@ spec:
   storageClassName: efs-sc
   csi:
     driver: efs.csi.aws.com
-    volumeHandle: <EFS_FILE_SYSTEM_ID>
+    volumeHandle: fs-0fa9fbc4343c01886
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
