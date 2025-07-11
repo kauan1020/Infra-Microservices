@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-worker
+  namespace: fiap-x-dev
+  labels:
+    app: video-worker
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: video-worker
+  template:
+    metadata:
+      labels:
+        app: video-worker
+    spec:
+      serviceAccountName: video-service-sa
+      containers:

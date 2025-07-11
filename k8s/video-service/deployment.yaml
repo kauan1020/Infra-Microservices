@@ -6,7 +6,9 @@ metadata:
   labels:
     app: video-service
 spec:
-  replicas: 2
+  strategy:
+    type: Recreate
+  replicas: 1
   selector:
     matchLabels:
       app: video-service
@@ -21,9 +23,6 @@ spec:
         image: 720049726178.dkr.ecr.us-east-1.amazonaws.com/fiap-x-dev-video-service:latest
         command: ["alembic", "upgrade", "head"]
         env:
-        - name: AWS_REGION
-          value: "us-east-1"
-        # Fixed: Using DATABASE_ prefix instead of DB_
         - name: DATABASE_HOST
           valueFrom:
             secretKeyRef:
@@ -55,7 +54,7 @@ spec:
             cpu: "200m"
       containers:
       - name: video-service
-        image: 720049726178.dkr.ecr.us-east-1.amazonaws.com/fiap-x-dev-video-service
+        image: 720049726178.dkr.ecr.us-east-1.amazonaws.com/fiap-x-dev-video-service:latest
         ports:
         - containerPort: 8001
         env:
@@ -73,6 +72,8 @@ spec:
           value: "8001"
         - name: APP_WORKERS
           value: "1"
+
+        # Database Configuration
         - name: DATABASE_HOST
           valueFrom:
             secretKeyRef:
@@ -101,10 +102,8 @@ spec:
           value: "10"
         - name: DATABASE_MAX_OVERFLOW
           value: "20"
-        - name: DATABASE_POOL_TIMEOUT
-          value: "30"
-        - name: DATABASE_POOL_RECYCLE
-          value: "3600"
+
+        # Redis Configuration
         - name: REDIS_HOST
           value: "redis-service"
         - name: REDIS_PORT
@@ -116,65 +115,213 @@ spec:
               key: password
         - name: REDIS_DB
           value: "0"
-        - name: REDIS_MAX_CONNECTIONS
-          value: "50"
+
+        # Kafka Configuration
         - name: KAFKA_BOOTSTRAP_SERVERS
-          value: "kafka-service:29092"
-        - name: KAFKA_EXTERNAL_PORT
-          value: "9092"
+          value: "kafka-service:9092"
         - name: KAFKA_SECURITY_PROTOCOL
           value: "PLAINTEXT"
-        - name: KAFKA_SASL_MECHANISM
-          value: "PLAIN"
-        - name: KAFKA_SASL_USERNAME
-          value: ""
-        - name: KAFKA_SASL_PASSWORD
-          value: ""
         - name: KAFKA_TOPIC_VIDEO_JOBS
           value: "video_jobs"
         - name: KAFKA_TOPIC_NOTIFICATIONS
           value: "notifications"
         - name: KAFKA_TOPIC_PROCESSING
           value: "video_processing"
-        - name: KAFKA_TOPIC_SYSTEM_ALERTS
-          value: "system_alerts"
         - name: KAFKA_GROUP_ID
           value: "video_processing_group"
-        - name: KAFKA_AUTO_OFFSET_RESET
-          value: "earliest"
-        - name: KAFKA_ENABLE_AUTO_COMMIT
-          value: "false"
-        - name: KAFKA_SESSION_TIMEOUT_MS
-          value: "30000"
-        - name: KAFKA_HEARTBEAT_INTERVAL_MS
-          value: "10000"
+
+        # Auth Service Configuration
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service:8000"
+        - name: USER_SERVICE_SERVICE_URL
+          value: "http://auth-service:8000"
+        - name: USER_SERVICE_TIMEOUT
+          value: "30"
+
+        # Notification Configuration (Gmail direto, sem service)
+        - name: NOTIFICATION_GMAIL_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: notification-secret
+              key: gmail_email
+        - name: NOTIFICATION_GMAIL_APP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: notification-secret
+              key: gmail_app_password
+        - name: NOTIFICATION_FROM_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: notification-secret
+              key: from_email
+        - name: NOTIFICATION_FROM_NAME
+          valueFrom:
+            secretKeyRef:
+              name: notification-secret
+              key: from_name
+        - name: NOTIFICATION_ADMIN_EMAILS
+          valueFrom:
+            secretKeyRef:
+              name: notification-secret
+              key: admin_emails
+
+        # Storage Configuration
+        - name: STORAGE_BASE_PATH
+          value: "/app/storage"
+        - name: STORAGE_VIDEO_PATH
+          value: "/app/storage/videos"
+        - name: STORAGE_FRAMES_PATH
+          value: "/app/storage/frames"
+        - name: STORAGE_ZIP_PATH
+          value: "/app/storage/results"
+        - name: STORAGE_TEMP_PATH
+          value: "/app/storage/temp"
+
+        # Processing Configuration
+        - name: PROCESSING_FFMPEG_PATH
+          value: "ffmpeg"
+        - name: PROCESSING_FFPROBE_PATH
+          value: "ffprobe"
+        - name: PROCESSING_MAX_FILE_SIZE_MB
+          value: "500"
+        - name: PROCESSING_MAX_CONCURRENT_JOBS
+          value: "4"
+
+        # CORS Configuration
+        - name: CORS_ALLOWED_ORIGINS
+          value: "*"
+
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "500m"
-          limits:
-            memory: "1Gi"
+            memory: "999Mi"
             cpu: "1000m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
         livenessProbe:
           httpGet:
             path: /health
             port: 8001
           initialDelaySeconds: 60
           periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /health
             port: 8001
           initialDelaySeconds: 10
           periodSeconds: 5
-          timeoutSeconds: 5
-          failureThreshold: 3
         volumeMounts:
         - name: video-storage
           mountPath: /app/storage
+
+
+
+      - name: video-worker
+        image: 720049726178.dkr.ecr.us-east-1.amazonaws.com/fiap-x-dev-video-service:latest
+        command: ["python", "-u", "worker.py", "--workers", "1"]
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: APP_NAME
+          value: "FIAP X Video Processing Worker"
+        - name: APP_ENVIRONMENT
+          value: "production"
+
+        # Database Configuration
+        - name: DATABASE_HOST
+          valueFrom:
+            secretKeyRef:
+              name: video-db-secret
+              key: host
+        - name: DATABASE_PORT
+          value: "5432"
+        - name: DATABASE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: video-db-secret
+              key: database
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: video-db-secret
+              key: username
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: video-db-secret
+              key: password
+
+        # Kafka Configuration
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka-service:9092"
+        - name: KAFKA_SECURITY_PROTOCOL
+          value: "PLAINTEXT"
+        - name: KAFKA_TOPIC_PROCESSING
+          value: "video_processing"
+        - name: KAFKA_GROUP_ID
+          value: "video_processing_workers"
+
+        # User Service Configuration
+        - name: USER_SERVICE_SERVICE_URL
+          value: "http://auth-service:8000"
+        - name: USER_SERVICE_TIMEOUT
+          value: "30"
+
+        # Notification Configuration (Gmail direto)
+        - name: NOTIFICATION_GMAIL_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: notification-secret
+              key: gmail_email
+        - name: NOTIFICATION_GMAIL_APP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: notification-secret
+              key: gmail_app_password
+        - name: NOTIFICATION_FROM_NAME
+          valueFrom:
+            secretKeyRef:
+              name: notification-secret
+              key: from_name
+        - name: NOTIFICATION_ADMIN_EMAILS
+          valueFrom:
+            secretKeyRef:
+              name: notification-secret
+              key: admin_emails
+
+        # Storage Configuration
+        - name: STORAGE_BASE_PATH
+          value: "/app/storage"
+        - name: STORAGE_VIDEO_PATH
+          value: "/app/storage/videos"
+        - name: STORAGE_FRAMES_PATH
+          value: "/app/storage/frames"
+        - name: STORAGE_ZIP_PATH
+          value: "/app/storage/results"
+        - name: STORAGE_TEMP_PATH
+          value: "/app/storage/temp"
+
+        # Processing Configuration
+        - name: PROCESSING_FFMPEG_PATH
+          value: "ffmpeg"
+        - name: PROCESSING_FFPROBE_PATH
+          value: "ffprobe"
+        - name: PROCESSING_MAX_FILE_SIZE_MB
+          value: "500"
+        - name: PROCESSING_MAX_CONCURRENT_JOBS_PER_WORKER
+          value: "2"
+
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: video-storage
+          mountPath: /app/storage
+
       volumes:
       - name: video-storage
-        persistentVolumeClaim:
-          claimName: video-storage-pvc
+        emptyDir: {}
